@@ -40,10 +40,14 @@ unix-file-copy-paste = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+hyper = "0.14"
+actix-web = "4"
+minifb = "0.20"
 async-trait = "0.1"
 whoami = "1.5.0"
 scrap = { path = "libs/scrap", features = ["wayland"] }
 hbb_common = { path = "libs/hbb_common" }
+tokio = { version = "1", features = ["full"] }
 serde_derive = "1.0"
 serde = "1.0"
 serde_json = "1.0"

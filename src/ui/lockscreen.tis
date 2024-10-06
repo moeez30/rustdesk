@@ -1,0 +1,70 @@
+// lock_screen.tis
+// This TIS file defines the UI for the lock screen
+
+// Define the HTML structure
+let html_content = r#"
+<html>
+  <head>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f0f0f0;
+      }
+      .lock-panel {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        margin-top: 50px;
+      }
+      button {
+        background-color: #4CAF50;
+        border: none;
+        color: white;
+        padding: 15px 32px;
+        text-align: center;
+        font-size: 16px;
+        margin: 4px 2px;
+        cursor: pointer;
+      }
+      button:hover {
+        background-color: #45a049;
+      }
+      #unlock {
+        background-color: #f44336;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="lock-panel">
+      <button id="lock1">Lock Screen 1</button>
+      <button id="lock2">Lock Screen 2</button>
+      <button id="lock3">Lock Screen 3</button>
+      <button id="lock4">Lock Screen 4</button>
+      <button id="lock5">Lock Screen 5</button>
+      <button id="lock6">Lock Screen 6</button>
+      <button id="unlock">Unlock Screen</button>
+    </div>
+  </body>
+"#;
+
+// Load the HTML content into the view
+view.load_html(html_content, "");
+
+// Event handlers for buttons
+document.$('#lock1').on('click', () => lockScreen(1));
+document.$('#lock2').on('click', () => lockScreen(2));
+document.$('#lock3').on('click', () => lockScreen(3));
+document.$('#lock4').on('click', () => lockScreen(4));
+document.$('#lock5').on('click', () => lockScreen(5));
+document.$('#lock6').on('click', () => lockScreen(6));
+document.$('#unlock').on('click', () => unlockScreen());
+
+// Function to lock the screen with the selected logo
+function lockScreen(index) {
+  view.post("lock_screen", { logo_index: index });
+}
+
+// Function to unlock the screen
+function unlockScreen() {
+  view.post("unlock_screen", {});
+}

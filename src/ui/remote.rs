@@ -38,6 +38,8 @@ pub struct SciterHandler {
     close_state: HashMap<String, String>,
 }
 
+
+
 impl SciterHandler {
     #[inline]
     fn call(&self, func: &str, args: &[Value]) {
@@ -92,6 +94,7 @@ impl InvokeUiSession for SciterHandler {
         }
     }
 
+
     fn set_display(&self, x: i32, y: i32, w: i32, h: i32, cursor_embedded: bool) {
         self.call("setDisplay", &make_args!(x, y, w, h, cursor_embedded));
         // https://sciter.com/forums/topic/color_spaceiyuv-crash
@@ -105,6 +108,7 @@ impl InvokeUiSession for SciterHandler {
         });
     }
 
+    
     fn update_privacy_mode(&self) {
         self.call("updatePrivacyMode", &[]);
     }
@@ -353,6 +357,8 @@ impl DerefMut for SciterSession {
 }
 
 impl sciter::EventHandler for SciterSession {
+
+
     fn get_subscription(&mut self) -> Option<EVENT_GROUPS> {
         Some(EVENT_GROUPS::HANDLE_BEHAVIOR_EVENT)
     }
@@ -419,6 +425,7 @@ impl sciter::EventHandler for SciterSession {
     }
 
     sciter::dispatch_script_call! {
+        
         fn get_audit_server(String);
         fn send_note(String);
         fn is_xfce();
@@ -442,6 +449,7 @@ impl sciter::EventHandler for SciterSession {
         fn ctrl_alt_del();
         fn transfer_file();
         fn tunnel();
+        fn toggle_virtual_display( i32, bool);
         fn lock_screen();
         fn reconnect(bool);
         fn get_chatbox();
@@ -483,6 +491,9 @@ impl sciter::EventHandler for SciterSession {
         fn get_toggle_option(String);
         fn is_privacy_mode_supported();
         fn toggle_option(String);
+        fn toggle_privacy_mode(String, bool);
+        fn toggle_blank_screen_mz(bool);
+        fn set_custom_fps(i32); 
         fn get_remember();
         fn peer_platform();
         fn set_write_override(i32, i32, bool, bool, bool);
@@ -530,6 +541,7 @@ impl SciterSession {
         Self(session)
     }
 
+    
     pub fn inner(&self) -> Session<SciterHandler> {
         self.0.clone()
     }

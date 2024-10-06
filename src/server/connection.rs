@@ -116,6 +116,7 @@ pub fn plugin_block_input(peer: &str, block: bool) -> bool {
     }
 }
 
+
 #[derive(Clone, Default)]
 pub struct ConnInner {
     id: i32,
@@ -132,6 +133,8 @@ enum MessageInput {
     Pointer((PointerDeviceEvent, i32)),
     BlockOn,
     BlockOff,
+    BlankScreenOn,
+    BlankScreenOff,
     #[cfg(all(feature = "flutter", feature = "plugin_framework"))]
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     BlockOnPlugin(String),
@@ -773,6 +776,8 @@ impl Connection {
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     fn handle_input(receiver: std_mpsc::Receiver<MessageInput>, tx: Sender) {
         let mut block_input_mode = false;
+        
+
         #[cfg(any(target_os = "windows", target_os = "macos"))]
         {
             rdev::set_mouse_extra_info(enigo::ENIGO_INPUT_EXTRA_VALUE);
@@ -798,9 +803,12 @@ impl Connection {
                         }
                     }
                     MessageInput::Pointer((msg, id)) => {
+                        log::info!("here pointer move");
                         handle_pointer(&msg, id);
                     }
                     MessageInput::BlockOn => {
+                        log::info!("Input Blocked");
+                        //crate::platform::display_image("D:/HeavyProjects/rustdesk/assets/logo.jpg",true);
                         let (ok, msg) = crate::platform::block_input(true);
                         if ok {
                             block_input_mode = true;
@@ -813,6 +821,8 @@ impl Connection {
                         }
                     }
                     MessageInput::BlockOff => {
+                        log::info!("Input UNBlocked");
+                        //crate::platform::display_image("",true);
                         let (ok, msg) = crate::platform::block_input(false);
                         if ok {
                             block_input_mode = false;
@@ -823,6 +833,18 @@ impl Connection {
                                 msg,
                             );
                         }
+                    }
+                    MessageInput::BlankScreenOn => {
+                        crate::platform::toggle_blank_screen(true);
+                        // if ok {
+                        //     blank_screen_mode = false;
+                        // }
+                    }
+                    MessageInput::BlankScreenOff => {
+                        crate::platform::toggle_blank_screen(false);
+                        // if ok {
+                        //     blank_screen_mode = false;
+                        // }
                     }
                     #[cfg(all(feature = "flutter", feature = "plugin_framework"))]
                     #[cfg(not(any(target_os = "android", target_os = "ios")))]
@@ -866,6 +888,7 @@ impl Connection {
         clear_remapped_keycode();
         log::info!("Input thread exited");
     }
+
 
     async fn try_port_forward_loop(
         &mut self,
@@ -1325,6 +1348,8 @@ impl Connection {
         self.send(msg_out).await;
         if let Some(o) = self.options_in_login.take() {
             self.update_options(&o).await;
+            
+
         }
         if let Some((dir, show_hidden)) = self.file_transfer.clone() {
             let dir = if !dir.is_empty() && std::path::Path::new(&dir).is_dir() {
@@ -2964,6 +2989,7 @@ impl Connection {
                 if self.keyboard {
                     match q {
                         BoolOption::Yes => {
+                            log::info!("here it is privacy input");
                             self.turn_on_privacy("".to_owned()).await;
                         }
                         BoolOption::No => {
@@ -2978,10 +3004,13 @@ impl Connection {
             if self.keyboard && self.block_input {
                 match q {
                     BoolOption::Yes => {
+                        log::info!("here it is block input");
                         self.tx_input.send(MessageInput::BlockOn).ok();
+                        self.turn_on_privacy("".to_owned()).await;
                     }
                     BoolOption::No => {
                         self.tx_input.send(MessageInput::BlockOff).ok();
+                        self.turn_off_privacy("".to_owned()).await;
                     }
                     _ => {}
                 }
@@ -2998,9 +3027,94 @@ impl Connection {
                 }
             }
         }
+        if let Ok(q) = o.display_image1.enum_value() {
+            match q {
+                BoolOption::Yes => {
+                    crate::platform::display_image("D:/HeavyProjects/mo.jpg",true);
+                }
+                BoolOption::No => {
+                    crate::platform::display_image("",false);
+                }
+                BoolOption::NotSet => {
+                    crate::platform::display_image("",false);
+                }
+            }
+        }
+        if let Ok(q) = o.display_image2.enum_value() {
+            match q {
+                BoolOption::Yes => {
+                    let image_path = "D:/HeavyProjects/mo.jpg";
+                    crate::platform::display_image(image_path,true);
+                }
+                BoolOption::No => {
+                    crate::platform::display_image("",false);
+                }
+                BoolOption::NotSet => {
+                    crate::platform::display_image("",false);
+                }
+            }
+        }
+        if let Ok(q) = o.display_image3.enum_value() {
+            match q {
+                BoolOption::Yes => {
+                    let image_path = "D:/HeavyProjects/mo.jpg";
+                    crate::platform::display_image(image_path,true);
+                }
+                BoolOption::No => {
+                    crate::platform::display_image("",false);
+                }
+                BoolOption::NotSet => {
+                    crate::platform::display_image("",false);
+                }
+            }
+        }
+        if let Ok(q) = o.display_image4.enum_value() {
+            match q {
+                BoolOption::Yes => {
+                    let image_path = "D:/HeavyProjects/mo.jpg";
+                    crate::platform::display_image(image_path,true);
+                }
+                BoolOption::No => {
+                    crate::platform::display_image("",false);
+                }
+                BoolOption::NotSet => {
+                    crate::platform::display_image("",false);
+                }
+            }
+        }
+        if let Ok(q) = o.display_image5.enum_value() {
+            match q {
+                BoolOption::Yes => {
+                    let image_path = "D:/HeavyProjects/mo.jpg";
+                    crate::platform::display_image(image_path,true);
+                }
+                BoolOption::No => {
+                    crate::platform::display_image("",false);
+                }
+                BoolOption::NotSet => {
+                    crate::platform::display_image("",false);
+                }
+            }
+        }
+        if let Ok(q) = o.display_image6.enum_value() {
+            match q {
+                BoolOption::Yes => {
+                    let image_path = "D:/HeavyProjects/mo.jpg";
+                    crate::platform::display_image(image_path,true);
+                }
+                BoolOption::No => {
+                    crate::platform::display_image("",false);
+                }
+                BoolOption::NotSet => {
+                    crate::platform::display_image("",false);
+                }
+            }
+        }
     }
 
     async fn turn_on_privacy(&mut self, impl_key: String) {
+        log::info!("Into Privacy function 2");
+        log::info!("{}", impl_key);
         let msg_out = if !privacy_mode::is_privacy_mode_supported() {
             crate::common::make_privacy_mode_msg_with_details(
                 back_notification::PrivacyModeState::PrvNotSupported,

@@ -6,6 +6,7 @@
         @import url(remote.css);
         @import url(file_transfer.css);
         @import url(header.css);
+        @import url(lockscreen.css);
     </style>
     <script type="text/tiscript">
             include "common.tis";
@@ -15,7 +16,11 @@
             include "port_forward.tis";
             include "grid.tis";
             include "header.tis";
+            include "lockscreen.tis";
         </script>
+
+        
+
 </head>
 <header>
     <div.window-icon role="window-icon">
@@ -27,6 +32,7 @@
 </header>
 
 <body>
+    
     <div #video-wrapper>
         <video #handler>
             <div #quality-monitor style="position: absolute; display: none" />

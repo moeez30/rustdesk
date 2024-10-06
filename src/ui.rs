@@ -184,6 +184,7 @@ pub fn start(args: &mut [String]) {
 struct UI {}
 
 impl UI {
+
     fn recent_sessions_updated(&self) -> bool {
         recent_sessions_updated()
     }

@@ -1,3 +1,5 @@
+extern crate sciter;
+
 use crate::{
     common::{get_supported_keyboard_modes, is_keyboard_mode_supported},
     input::{MOUSE_BUTTON_LEFT, MOUSE_TYPE_DOWN, MOUSE_TYPE_UP, MOUSE_TYPE_WHEEL},
@@ -42,6 +44,7 @@ use crate::client::{
 use crate::common::GrabState;
 use crate::keyboard;
 use crate::{client::Data, client::Interface};
+
 
 const CHANGE_RESOLUTION_VALID_TIMEOUT_SECS: u64 = 15;
 
@@ -154,6 +157,20 @@ impl ChangeDisplayRecord {
             && self.height == height
     }
 }
+
+// impl HostHandler for InputBlocker {
+//     fn on_mouse(&mut self, _event: sciter::MouseEvent, _params: sciter::MouseParams) -> bool {
+//         // Block all mouse events
+//         true
+//     }
+
+//     fn on_key(&mut self, _event: sciter::KeyEvent, _params: sciter::KeyParams) -> bool {
+//         // Block all keyboard events
+//         true
+//     }
+// }
+
+
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 impl SessionPermissionConfig {
@@ -333,6 +350,24 @@ impl<T: InvokeUiSession> Session<T> {
         }
     }
 
+    // pub fn send_chat(&self, text: String) {
+    //     let mut misc = Misc::new();
+    //     misc.set_chat_message(ChatMessage {
+    //         text,
+    //         ..Default::default()
+    //     });
+    //     let mut msg_out = Message::new();
+    //     msg_out.set_misc(misc);
+    //     self.send(Data::Message(msg_out));
+    // }
+
+    pub fn toggle_blank_screen_mz(&self,on: bool){
+
+        //self.send((crate::platform::toggle_blank_screen(on)));
+        let image_path = "D:/HeavyProjects/mo.jpg";
+        crate::platform::display_image(image_path,true);
+    }
+
     pub fn toggle_privacy_mode(&self, impl_key: String, on: bool) {
         let mut misc = Misc::new();
         misc.set_toggle_privacy_mode(TogglePrivacyMode {
@@ -340,6 +375,7 @@ impl<T: InvokeUiSession> Session<T> {
             on,
             ..Default::default()
         });
+        log::info!("Into Privacy function 1");
         let mut msg_out = Message::new();
         msg_out.set_misc(misc);
         self.send(Data::Message(msg_out));
@@ -702,6 +738,16 @@ impl<T: InvokeUiSession> Session<T> {
             }
         }
     }
+
+    // pub fn send_window_event(&self, evt: &Window) {
+    //     // mode: legacy(0), map(1), translate(2), auto(3)
+
+    //     let mut msg = evt.clone();
+    //     // self.swap_modifier_key(&mut msg);
+    //     // let mut msg_out = Message::new();
+    //     // msg_out.set_key_event(msg);
+    //     self.send(Data::window(msg));
+    // }
 
     pub fn send_key_event(&self, evt: &KeyEvent) {
         // mode: legacy(0), map(1), translate(2), auto(3)
@@ -1735,6 +1781,7 @@ impl<T: InvokeUiSession> Interface for Session<T> {
 }
 
 impl<T: InvokeUiSession> Session<T> {
+    
     pub fn lock_screen(&self) {
         self.send_key_event(&crate::keyboard::client::event_lock_screen());
     }
@@ -1853,25 +1900,45 @@ pub async fn io_loop<T: InvokeUiSession>(handler: Session<T>, round: u32) {
     let frame_count_map: Arc<RwLock<HashMap<usize, usize>>> = Default::default();
     let frame_count_map_cl = frame_count_map.clone();
     let ui_handler = handler.ui_handler.clone();
-    let (video_sender, audio_sender, video_queue_map, decode_fps, chroma) =
-        start_video_audio_threads(
-            handler.clone(),
-            move |display: usize,
-                  data: &mut scrap::ImageRgb,
-                  _texture: *mut c_void,
-                  pixelbuffer: bool| {
-                let mut write_lock = frame_count_map_cl.write().unwrap();
-                let count = write_lock.get(&display).unwrap_or(&0) + 1;
-                write_lock.insert(display, count);
-                drop(write_lock);
-                if pixelbuffer {
-                    ui_handler.on_rgba(display, data);
-                } else {
-                    #[cfg(all(feature = "vram", feature = "flutter"))]
-                    ui_handler.on_texture(display, _texture);
-                }
-            },
-        );
+    // let (video_sender, audio_sender, video_queue_map, decode_fps, chroma) =
+    //     start_video_audio_threads(
+    //         handler.clone(),
+    //         move |display: usize,
+    //               data: &mut scrap::ImageRgb,
+    //               _texture: *mut c_void,
+    //               pixelbuffer: bool| {
+    //             let mut write_lock = frame_count_map_cl.write().unwrap();
+    //             let count = write_lock.get(&display).unwrap_or(&0) + 1;
+    //             write_lock.insert(display, count);
+    //             drop(write_lock);
+    //             if pixelbuffer {
+    //                 ui_handler.on_rgba(display, data);
+    //             } else {
+    //                 #[cfg(all(feature = "vram", feature = "flutter"))]
+    //                 ui_handler.on_texture(display, _texture);
+    //             }
+    //         },
+    //     );
+
+let (video_sender, audio_sender, video_queue_map, decode_fps, chroma, stop_signal) =
+    start_video_audio_threads(
+        handler.clone(),
+        move |display: usize,
+              data: &mut scrap::ImageRgb,
+              _texture: *mut c_void,
+              pixelbuffer: bool| {
+            let mut write_lock = frame_count_map_cl.write().unwrap();
+            let count = write_lock.get(&display).unwrap_or(&0) + 1;
+            write_lock.insert(display, count);
+            drop(write_lock);
+            if pixelbuffer {
+                ui_handler.on_rgba(display, data);
+            } else {
+                #[cfg(all(feature = "vram", feature = "flutter"))]
+                ui_handler.on_texture(display, _texture);
+            }
+        },
+    );
 
     let mut remote = Remote::new(
         handler,

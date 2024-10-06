@@ -1,3 +1,5 @@
+
+
 var pi = handler.get_default_pi(); // peer information
 var chat_msgs = [];
 
@@ -221,7 +223,12 @@ class Header: Reactor.Component {
                 <div .separator />
                 {keyboard_enabled && (pi.platform == "Linux" || pi.sas_enabled) ? <li #ctrl-alt-del>{translate('Insert')} Ctrl + Alt + Del</li> : ""}
                 {restart_enabled && (pi.platform == "Linux" || pi.platform == "Windows" || pi.platform == "Mac OS") ? <li #restart_remote_device>{translate('Restart remote device')}</li> : ""}
-                {keyboard_enabled ? <li #lock-screen>{translate('Insert Lock')}</li> : ""}
+                {keyboard_enabled ? <li #lock-screen1 >{translate('LockScreen 1')}</li> : ""}
+                {keyboard_enabled ? <li #lock-screen2 >{translate('LockScreen 2')}</li> : ""}
+                {keyboard_enabled ? <li #lock-screen3 >{translate('LockScreen 3')}</li> : ""}
+                {keyboard_enabled ? <li #lock-screen4 >{translate('LockScreen 4')}</li> : ""}
+                {keyboard_enabled ? <li #lock-screen5 >{translate('LockScreen 5')}</li> : ""}
+                {keyboard_enabled ? <li #lock-screen6 >{translate('LockScreen 6')}</li> : ""}
                 {keyboard_enabled && pi.platform == "Windows" && pi.sas_enabled ? <li #block-input>{translate("Block user input")}</li> : ""}
                 <li #refresh>{translate('Refresh')}</li>
             </menu>
@@ -264,6 +271,7 @@ class Header: Reactor.Component {
             {screens}
         </div>;
     }
+
 
     event click $(#fullscreen) (_, el) {
         if (view.windowState == View.WINDOW_FULL_SCREEN) {
@@ -379,27 +387,104 @@ class Header: Reactor.Component {
             }
         );
     }
-
-    event click $(#lock-screen) {
-        handler.lock_screen();
+	
+	
+    event click $(#lock-screen1){
+        if (!input_blocked) {
+            handler.set_custom_fps(1); 
+            handler.toggle_option("block-input");
+            input_blocked = true;
+            $(#lock-screen1).text = translate("Unlock User");
+        } else {
+            handler.set_custom_fps(0); 
+            handler.toggle_option("unblock-input");
+            handler.toggle_privacy_mode("",false);
+            input_blocked = false;
+            $(#lock-screen1).text = translate("Lock User");
+        }
     }
+    event click $(#lock-screen2){
+        if (!input_blocked) {
+            handler.set_custom_fps(2); 
+            handler.toggle_option("block-input");
+            input_blocked = true;
+            $(#lock-screen1).text = translate("Unlock User");
+        } else {
+            handler.set_custom_fps(0); 
+            handler.toggle_option("unblock-input");
+            handler.toggle_privacy_mode("",false);
+            input_blocked = false;
+            $(#lock-screen1).text = translate("Lock User");
+        }    }
+    event click $(#lock-screen3){
+        if (!input_blocked) {
+            handler.set_custom_fps(3); 
+            handler.toggle_option("block-input");
+            input_blocked = true;
+            $(#lock-screen1).text = translate("Unlock User");
+        } else {
+            handler.set_custom_fps(0); 
+            handler.toggle_option("unblock-input");
+            handler.toggle_privacy_mode("",false);
+            input_blocked = false;
+            $(#lock-screen1).text = translate("Lock User");
+        }    }
+    event click $(#lock-screen4){
+        if (!input_blocked) {
+            handler.set_custom_fps(4); 
+            handler.toggle_option("block-input");
+            input_blocked = true;
+            $(#lock-screen1).text = translate("Unlock User");
+        } else {
+            handler.set_custom_fps(0); 
+            handler.toggle_option("unblock-input");
+            handler.toggle_privacy_mode("",false);
+            input_blocked = false;
+            $(#lock-screen1).text = translate("Lock User");
+        }    }
+    event click $(#lock-screen5){
+        if (!input_blocked) {
+            handler.set_custom_fps(5); 
+            handler.toggle_option("block-input");
+            input_blocked = true;
+            $(#lock-screen1).text = translate("Unlock User");
+        } else {
+            handler.set_custom_fps(0); 
+            handler.toggle_option("unblock-input");
+            handler.toggle_privacy_mode("",false);
+            input_blocked = false;
+            $(#lock-screen1).text = translate("Lock User");
+        }    }
+    event click $(#lock-screen6){
+        if (!input_blocked) {
+            handler.set_custom_fps(6); 
+            handler.toggle_option("block-input");
+            input_blocked = true;
+            $(#lock-screen1).text = translate("Unlock User");
+        } else {
+            handler.set_custom_fps(0); 
+            handler.toggle_option("unblock-input");
+            handler.toggle_privacy_mode("",false);
+            input_blocked = false;
+            $(#lock-screen1).text = translate("Lock User");
+        }    }
     
     event click $(#refresh) {
         // 0 is just a dummy value. It will be ignored by the handler.
         handler.refresh_video(0);
     }
 
-    event click $(#block-input) {
-        if (!input_blocked) {
-            handler.toggle_option("block-input");
-            input_blocked = true;
-            $(#block-input).text = translate("Unblock user input");
-        } else {
-            handler.toggle_option("unblock-input");
-            input_blocked = false;
-            $(#block-input).text = translate("Block user input");
-        }
-    }
+    // event click $(#block-input) {
+    //     if (!input_blocked) {
+    //         handler.toggle_option("block-input");
+    //         input_blocked = true;
+    //         $(#block-input).text = translate("Unblock user input");
+    //     } else {
+    //         handler.toggle_option("unblock-input");
+    //         input_blocked = false;
+    //         $(#block-input).text = translate("Block user input");
+    //     }
+    // }
 
     event click $(menu#display-options li) (_, me) {
         if (me.id == "custom") {

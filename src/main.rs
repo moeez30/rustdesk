@@ -10,6 +10,7 @@ fn main() {
     if !common::global_init() {
         return;
     }
+    
     common::test_rendezvous_server();
     common::test_nat_type();
     common::global_clean();
@@ -32,6 +33,7 @@ fn main() {
     if let Some(args) = crate::core_main::core_main().as_mut() {
         ui::start(args);
     }
+
     common::global_clean();
 }
 

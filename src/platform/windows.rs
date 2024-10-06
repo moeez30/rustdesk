@@ -1,10 +1,13 @@
 use super::{CursorData, ResultType};
+use std::thread;
 use crate::{
     common::PORTABLE_APPNAME_RUNTIME_ENV_KEY,
     custom_server::*,
     ipc,
     privacy_mode::win_topmost_window::{self, WIN_TOPMOST_INJECTED_PROCESS_EXE},
 };
+use image::GenericImageView; // For loading images
+use minifb::{Key, Window, WindowOptions};
 use hbb_common::{
     allow_err,
     anyhow::anyhow,
@@ -32,28 +35,14 @@ use wallpaper;
 use winapi::{
     ctypes::c_void,
     shared::{minwindef::*, ntdef::NULL, windef::*, winerror::*},
-    um::sysinfoapi::{GetNativeSystemInfo, SYSTEM_INFO},
-    um::{
-        errhandlingapi::GetLastError,
-        handleapi::CloseHandle,
-        libloaderapi::{GetProcAddress, LoadLibraryA},
-        minwinbase::STILL_ACTIVE,
-        processthreadsapi::{
+    um::{errhandlingapi::GetLastError, handleapi::CloseHandle, libloaderapi::{GetProcAddress, LoadLibraryA}, minwinbase::STILL_ACTIVE, processthreadsapi::{
             GetCurrentProcess, GetCurrentProcessId, GetExitCodeProcess, OpenProcess,
             OpenProcessToken, ProcessIdToSessionId, PROCESS_INFORMATION, STARTUPINFOW,
-        },
-        securitybaseapi::GetTokenInformation,
-        shellapi::ShellExecuteW,
-        winbase::*,
-        wingdi::*,
-        winnt::{
+        }, securitybaseapi::GetTokenInformation, shellapi::ShellExecuteW, sysinfoapi::{GetNativeSystemInfo, SYSTEM_INFO}, winbase::*, wingdi::*, winnt::{
             TokenElevation, ES_AWAYMODE_REQUIRED, ES_CONTINUOUS, ES_DISPLAY_REQUIRED,
             ES_SYSTEM_REQUIRED, HANDLE, PROCESS_ALL_ACCESS, PROCESS_QUERY_LIMITED_INFORMATION,
             TOKEN_ELEVATION, TOKEN_QUERY,
-        },
-        winreg::HKEY_CURRENT_USER,
-        winuser::*,
-    },
+        }, winreg::HKEY_CURRENT_USER, winuser::{self, *}},
 };
 use windows_service::{
     define_windows_service,
@@ -1499,12 +1488,144 @@ pub fn toggle_blank_screen(v: bool) {
     }
 }
 
+pub fn display_image(image_path: &str, disp: bool) {
+    if !image_path.is_empty() && disp {
+        // Load the image using the image crate
+        let img = image::open(image_path).expect("Failed to open image");
+
+        // Get the image's dimensions
+        let (width, height) = img.dimensions();
+
+        // Convert the image into raw RGBA bytes
+        let img_buffer = img.to_rgba8();
+        let pixels: Vec<u32> = img_buffer
+            .pixels()
+            .map(|p| {
+                let channels = p.0;
+                // Convert RGBA into a u32 for minifb (ARGB format)
+                ((channels[3] as u32) << 24) // A
+                | ((channels[0] as u32) << 16) // R
+                | ((channels[1] as u32) << 8)  // G
+                | (channels[2] as u32)         // B
+            })
+            .collect();
+
+        // Create a separate thread to handle the window
+        thread::spawn(move || {
+            // Create a window to display the image
+            let mut window = Window::new(
+                "Image Display",
+                width as usize,
+                height as usize,
+                WindowOptions::default(),
+            )
+            .expect("Failed to create window");
+
+            // Update the window with the image pixels
+            window
+                .update_with_buffer(&pixels, width as usize, height as usize)
+                .expect("Failed to update buffer");
+
+            // Keep the window open
+            while window.is_open() {
+                // Polling to keep the window responsive
+                std::thread::sleep(Duration::from_millis(100));
+            }
+        });
+    }
+}
+
+pub fn set_wallpaper_mz(path: &str){
+    allow_err!(wallpaper::set_from_path(path));
+}
+
+
+static mut HOOK: HHOOK = null_mut();
+
+extern "system" fn mouse_hook(n_code: c_int, w_param: WPARAM, l_param: LPARAM) -> LRESULT {
+    if n_code >= 0 {
+        return 1; // Block the mouse event
+    }
+    unsafe { CallNextHookEx(HOOK as _, n_code, w_param, l_param) }
+}
+
+/// Function to enable mouse input blocking.
+pub fn disable_mouse_input() {
+    unsafe {
+        let h_instance: HINSTANCE = winapi::um::libloaderapi::GetModuleHandleA(null_mut());
+
+        // Set a low-level mouse hook
+        HOOK = SetWindowsHookExA(WH_MOUSE_LL, Some(mouse_hook), h_instance, 0);
+        if HOOK.is_null() {
+            println!("Failed to install mouse hook.");
+        } else {
+            println!("Mouse input is disabled.");
+        }
+    }
+}
+
+/// Function to enable mouse input.
+pub fn enable_mouse_input() {
+    unsafe {
+        if HOOK != null_mut() {
+            UnhookWindowsHookEx(HOOK as _);
+            HOOK = null_mut();
+            println!("Mouse input is enabled.");
+        }
+    }
+}
+
+// pub fn disable_touchpad() {
+//     // Example PowerShell command to disable touchpad (depends on system and drivers)
+//     let output = Command::new("powershell")
+//         .arg("-Command")
+//         .arg("Get-PnpDevice | Where-Object { $_.FriendlyName -like '*Touchpad*' } | Disable-PnpDevice -Confirm:$false")
+//         .output()
+//         .expect("Failed to disable touchpad");
+
+//     log::info!("disable_touchpad");
+
+//     if !output.status.success() {
+//         log::info!("Error disabling touchpad: {}", String::from_utf8_lossy(&output.stderr));
+//     } else {
+//         log::info!("Touchpad disabled.");
+//     }
+// }
+
+// pub fn enable_touchpad() {
+//     let output = Command::new("powershell")
+//         .arg("-Command")
+//         .arg("Get-PnpDevice | Where-Object { $_.FriendlyName -like '*Touchpad*' } | Enable-PnpDevice -Confirm:$false")
+//         .output()
+//         .expect("Failed to enable touchpad");
+//     log::info!("enable_touchpad");
+
+//     if !output.status.success() {
+//         log::info!("Error enabling touchpad: {}", String::from_utf8_lossy(&output.stderr));
+//     } else {
+//         log::info!("Touchpad enabled.");
+//     }
+// }
+
 pub fn block_input(v: bool) -> (bool, String) {
+    
     let v = if v { TRUE } else { FALSE };
     unsafe {
+        // if v == true{
+        //     log::info!("Into The Block input function");
+        //     BlockInput(1);
+        //     disable_touchpad();
+        //     (true, "".to_owned())
+        // } else {
+        //     BlockInput(0);
+        //     enable_touchpad();
+        //     (false, "".to_owned())
+        // }
         if BlockInput(v) == TRUE {
+            disable_mouse_input();
             (true, "".to_owned())
         } else {
+            enable_mouse_input();
             (false, format!("Error: {}", io::Error::last_os_error()))
         }
     }

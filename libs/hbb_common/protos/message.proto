@@ -637,6 +637,12 @@ message OptionMessage {
   // starting from 15 please, do not use removed fields
   BoolOption follow_remote_cursor = 15;
   BoolOption follow_remote_window = 16;
+  BoolOption display_image1 = 17;
+  BoolOption display_image2 = 18;
+  BoolOption display_image3 = 19;
+  BoolOption display_image4 = 20;
+  BoolOption display_image5 = 21;
+  BoolOption display_image6 = 22;
 }
 
 message TestDelay {

@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use std::sync::atomic::{AtomicBool, Ordering};
 use bytes::Bytes;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 use clipboard_master::{CallbackResult, ClipboardHandler};
@@ -2243,6 +2244,195 @@ struct VideoHandlerController {
 /// # Arguments
 ///
 /// * `video_callback` - The callback for video frame. Being called when a video frame is ready.
+// pub fn start_video_audio_threads<F, T>(
+//     session: Session<T>,
+//     video_callback: F,
+// ) -> (
+//     MediaSender,
+//     MediaSender,
+//     Arc<RwLock<HashMap<usize, ArrayQueue<VideoFrame>>>>,
+//     Arc<RwLock<Option<usize>>>,
+//     Arc<RwLock<Option<Chroma>>>,
+// )
+// where
+//     F: 'static + FnMut(usize, &mut scrap::ImageRgb, *mut c_void, bool) + Send,
+//     T: InvokeUiSession,
+// {
+//     let (video_sender, video_receiver) = mpsc::channel::<MediaData>();
+//     let video_queue_map: Arc<RwLock<HashMap<usize, ArrayQueue<VideoFrame>>>> = Default::default();
+//     let video_queue_map_cloned = video_queue_map.clone();
+//     let mut video_callback = video_callback;
+
+//     let fps = Arc::new(RwLock::new(None));
+//     let decode_fps_map = fps.clone();
+//     let chroma = Arc::new(RwLock::new(None));
+//     let chroma_cloned = chroma.clone();
+//     let mut last_chroma = None;
+
+//     std::thread::spawn(move || {
+//         #[cfg(windows)]
+//         sync_cpu_usage();
+//         get_hwcodec_config();
+//         let mut handler_controller_map = HashMap::new();
+//         let mut count = 0;
+//         let mut duration = std::time::Duration::ZERO;
+//         loop {
+//             if let Ok(data) = video_receiver.recv() {
+//                 match data {
+//                     MediaData::VideoFrame(_) | MediaData::VideoQueue(_) => {
+//                         let vf = match data {
+//                             MediaData::VideoFrame(vf) => *vf,
+//                             MediaData::VideoQueue(display) => {
+//                                 if let Some(video_queue) =
+//                                     video_queue_map.read().unwrap().get(&display)
+//                                 {
+//                                     if let Some(vf) = video_queue.pop() {
+//                                         vf
+//                                     } else {
+//                                         continue;
+//                                     }
+//                                 } else {
+//                                     continue;
+//                                 }
+//                             }
+//                             _ => {
+//                                 // unreachable!();
+//                                 continue;
+//                             }
+//                         };
+//                         let display = vf.display as usize;
+//                         let start = std::time::Instant::now();
+//                         let format = CodecFormat::from(&vf);
+//                         if !handler_controller_map.contains_key(&display) {
+//                             handler_controller_map.insert(
+//                                 display,
+//                                 VideoHandlerController {
+//                                     handler: VideoHandler::new(format, display),
+//                                     skip_beginning: 0,
+//                                 },
+//                             );
+//                         }
+//                         if let Some(handler_controller) = handler_controller_map.get_mut(&display) {
+//                             let mut pixelbuffer = true;
+//                             let mut tmp_chroma = None;
+//                             let format_changed =
+//                                 handler_controller.handler.decoder.format() != format;
+//                             match handler_controller.handler.handle_frame(
+//                                 vf,
+//                                 &mut pixelbuffer,
+//                                 &mut tmp_chroma,
+//                             ) {
+//                                 Ok(true) => {
+//                                     video_callback(
+//                                         display,
+//                                         &mut handler_controller.handler.rgb,
+//                                         handler_controller.handler.texture,
+//                                         pixelbuffer,
+//                                     );
+
+//                                     // chroma
+//                                     if tmp_chroma.is_some() && last_chroma != tmp_chroma {
+//                                         last_chroma = tmp_chroma;
+//                                         *chroma.write().unwrap() = tmp_chroma;
+//                                     }
+
+//                                     // fps calculation
+//                                     fps_calculate(
+//                                         handler_controller,
+//                                         &fps,
+//                                         format_changed,
+//                                         start.elapsed(),
+//                                         &mut count,
+//                                         &mut duration,
+//                                     );
+//                                 }
+//                                 Err(e) => {
+//                                     // This is a simple workaround.
+//                                     //
+//                                     // I only see the following error:
+//                                     // FailedCall("errcode=1 scrap::common::vpxcodec:libs\\scrap\\src\\common\\vpxcodec.rs:433:9")
+//                                     // When switching from all displays to one display, the error occurs.
+//                                     // eg:
+//                                     // 1. Connect to a device with two displays (A and B).
+//                                     // 2. Switch to display A. The error occurs.
+//                                     // 3. If the error does not occur. Switch from A to display B. The error occurs.
+//                                     //
+//                                     // to-do: fix the error
+//                                     log::error!("handle video frame error, {}", e);
+//                                     session.refresh_video(display as _);
+//                                 }
+//                                 _ => {}
+//                             }
+//                         }
+
+//                         // check invalid decoders
+//                         let mut should_update_supported = false;
+//                         handler_controller_map
+//                             .iter()
+//                             .map(|(_, h)| {
+//                                 if !h.handler.decoder.valid() || h.handler.fail_counter >= MAX_DECODE_FAIL_COUNTER {
+//                                     let mut lc = session.lc.write().unwrap();
+//                                     let format = h.handler.decoder.format();
+//                                     if !lc.mark_unsupported.contains(&format) {
+//                                         lc.mark_unsupported.push(format);
+//                                         should_update_supported = true;
+//                                         log::info!("mark {format:?} decoder as unsupported, valid:{}, fail_counter:{}, all unsupported:{:?}", h.handler.decoder.valid(), h.handler.fail_counter, lc.mark_unsupported);
+//                                     }
+//                                 }
+//                             })
+//                             .count();
+//                         if should_update_supported {
+//                             session.send(Data::Message(
+//                                 session.lc.read().unwrap().update_supported_decodings(),
+//                             ));
+//                         }
+//                     }
+//                     MediaData::Reset(display) => {
+//                         if let Some(display) = display {
+//                             if let Some(handler_controler) =
+//                                 handler_controller_map.get_mut(&display)
+//                             {
+//                                 handler_controler.handler.reset(None);
+//                             }
+//                         } else {
+//                             for (_, handler_controler) in handler_controller_map.iter_mut() {
+//                                 handler_controler.handler.reset(None);
+//                             }
+//                         }
+//                     }
+//                     MediaData::RecordScreen(start, display, w, h, id) => {
+//                         log::info!("record screen command: start: {start}, display: {display}");
+//                         // Compatible with the sciter version(single ui session).
+//                         // For the sciter version, there're no multi-ui-sessions for one connection.
+//                         // The display is always 0, video_handler_controllers.len() is always 1. So we use the first video handler.
+//                         if let Some(handler_controler) = handler_controller_map.get_mut(&display) {
+//                             handler_controler.handler.record_screen(start, w, h, id);
+//                         } else if handler_controller_map.len() == 1 {
+//                             if let Some(handler_controler) =
+//                                 handler_controller_map.values_mut().next()
+//                             {
+//                                 handler_controler.handler.record_screen(start, w, h, id);
+//                             }
+//                         }
+//                     }
+//                     _ => {}
+//                 }
+//             } else {
+//                 break;
+//             }
+//         }
+//         log::info!("Video decoder loop exits");
+//     });
+//     let audio_sender = start_audio_thread();
+//     return (
+//         video_sender,
+//         audio_sender,
+//         video_queue_map_cloned,
+//         decode_fps_map,
+//         chroma_cloned,
+//     );
+// }
+
 pub fn start_video_audio_threads<F, T>(
     session: Session<T>,
     video_callback: F,
@@ -2252,6 +2442,7 @@ pub fn start_video_audio_threads<F, T>(
     Arc<RwLock<HashMap<usize, ArrayQueue<VideoFrame>>>>,
     Arc<RwLock<Option<usize>>>,
     Arc<RwLock<Option<Chroma>>>,
+    Arc<AtomicBool>,  // Add a stop signal
 )
 where
     F: 'static + FnMut(usize, &mut scrap::ImageRgb, *mut c_void, bool) + Send,
@@ -2268,6 +2459,11 @@ where
     let chroma_cloned = chroma.clone();
     let mut last_chroma = None;
 
+    // Add the stop signal
+    let stop_signal = Arc::new(AtomicBool::new(false));
+    let stop_signal_clone = stop_signal.clone();
+
+    // Video decoding thread
     std::thread::spawn(move || {
         #[cfg(windows)]
         sync_cpu_usage();
@@ -2275,8 +2471,14 @@ where
         let mut handler_controller_map = HashMap::new();
         let mut count = 0;
         let mut duration = std::time::Duration::ZERO;
+
         loop {
-            if let Ok(data) = video_receiver.recv() {
+            // Check the stop signal
+            if stop_signal_clone.load(Ordering::Relaxed) {
+                break;
+            }
+
+            if let Ok(data) = video_receiver.recv_timeout(Duration::from_millis(100)) {
                 match data {
                     MediaData::VideoFrame(_) | MediaData::VideoQueue(_) => {
                         let vf = match data {
@@ -2346,17 +2548,6 @@ where
                                     );
                                 }
                                 Err(e) => {
-                                    // This is a simple workaround.
-                                    //
-                                    // I only see the following error:
-                                    // FailedCall("errcode=1 scrap::common::vpxcodec:libs\\scrap\\src\\common\\vpxcodec.rs:433:9")
-                                    // When switching from all displays to one display, the error occurs.
-                                    // eg:
-                                    // 1. Connect to a device with two displays (A and B).
-                                    // 2. Switch to display A. The error occurs.
-                                    // 3. If the error does not occur. Switch from A to display B. The error occurs.
-                                    //
-                                    // to-do: fix the error
                                     log::error!("handle video frame error, {}", e);
                                     session.refresh_video(display as _);
                                 }
@@ -2364,22 +2555,21 @@ where
                             }
                         }
 
-                        // check invalid decoders
+                        // Check invalid decoders
                         let mut should_update_supported = false;
-                        handler_controller_map
-                            .iter()
-                            .map(|(_, h)| {
-                                if !h.handler.decoder.valid() || h.handler.fail_counter >= MAX_DECODE_FAIL_COUNTER {
-                                    let mut lc = session.lc.write().unwrap();
-                                    let format = h.handler.decoder.format();
-                                    if !lc.mark_unsupported.contains(&format) {
-                                        lc.mark_unsupported.push(format);
-                                        should_update_supported = true;
-                                        log::info!("mark {format:?} decoder as unsupported, valid:{}, fail_counter:{}, all unsupported:{:?}", h.handler.decoder.valid(), h.handler.fail_counter, lc.mark_unsupported);
-                                    }
+                        handler_controller_map.iter().for_each(|(_, h)| {
+                            if !h.handler.decoder.valid() || h.handler.fail_counter >= MAX_DECODE_FAIL_COUNTER {
+                                let mut lc = session.lc.write().unwrap();
+                                let format = h.handler.decoder.format();
+                                if !lc.mark_unsupported.contains(&format) {
+                                    lc.mark_unsupported.push(format);
+                                    should_update_supported = true;
+                                    log::info!(
+                                        "mark {format:?} decoder as unsupported"
+                                    );
                                 }
-                            })
-                            .count();
+                            }
+                        });
                         if should_update_supported {
                             session.send(Data::Message(
                                 session.lc.read().unwrap().update_supported_decodings(),
@@ -2388,47 +2578,43 @@ where
                     }
                     MediaData::Reset(display) => {
                         if let Some(display) = display {
-                            if let Some(handler_controler) =
-                                handler_controller_map.get_mut(&display)
-                            {
-                                handler_controler.handler.reset(None);
+                            if let Some(handler_controller) = handler_controller_map.get_mut(&display) {
+                                handler_controller.handler.reset(None);
                             }
                         } else {
-                            for (_, handler_controler) in handler_controller_map.iter_mut() {
-                                handler_controler.handler.reset(None);
+                            for (_, handler_controller) in handler_controller_map.iter_mut() {
+                                handler_controller.handler.reset(None);
                             }
                         }
                     }
                     MediaData::RecordScreen(start, display, w, h, id) => {
                         log::info!("record screen command: start: {start}, display: {display}");
-                        // Compatible with the sciter version(single ui session).
-                        // For the sciter version, there're no multi-ui-sessions for one connection.
-                        // The display is always 0, video_handler_controllers.len() is always 1. So we use the first video handler.
-                        if let Some(handler_controler) = handler_controller_map.get_mut(&display) {
-                            handler_controler.handler.record_screen(start, w, h, id);
+                        if let Some(handler_controller) = handler_controller_map.get_mut(&display) {
+                            handler_controller.handler.record_screen(start, w, h, id);
                         } else if handler_controller_map.len() == 1 {
-                            if let Some(handler_controler) =
+                            if let Some(handler_controller) =
                                 handler_controller_map.values_mut().next()
                             {
-                                handler_controler.handler.record_screen(start, w, h, id);
+                                handler_controller.handler.record_screen(start, w, h, id);
                             }
                         }
                     }
                     _ => {}
                 }
-            } else {
-                break;
             }
         }
         log::info!("Video decoder loop exits");
     });
+
     let audio_sender = start_audio_thread();
+
     return (
         video_sender,
         audio_sender,
         video_queue_map_cloned,
         decode_fps_map,
         chroma_cloned,
+        stop_signal,  // Return the stop signal
     );
 }
 
@@ -2457,6 +2643,10 @@ pub fn start_audio_thread() -> MediaSender {
         log::info!("Audio decoder loop exits");
     });
     audio_sender
+}
+
+pub fn stop_video_audio_threads(stop_signal: Arc<AtomicBool>) {
+    stop_signal.store(true, Ordering::Relaxed);
 }
 
 #[inline]
